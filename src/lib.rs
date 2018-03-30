@@ -7,7 +7,8 @@ use tempfile::tempfile;
 
 pub trait Parser {
     fn parse<T>(&mut self, f: T) -> Result<Vec<Vec<String>>, String>
-        where T: Read + Seek;
+    where
+        T: Read + Seek;
 }
 
 pub struct FileParser {
@@ -28,7 +29,8 @@ impl FileParser {
 
 impl Parser for FileParser {
     fn parse<T>(&mut self, f: T) -> Result<Vec<Vec<String>>, String>
-        where T: Read + Seek
+    where
+        T: Read + Seek,
     {
         let mut fields: Vec<Vec<String>> = vec![];
         let reader = BufReader::new(f);
@@ -47,7 +49,10 @@ impl Parser for FileParser {
                 // Asserts the expected value separator is present.
                 if expect_value_separator {
                     if char != self.value_separator {
-                        return Err(format!("Expected `{}`, but found `{}`.", self.value_separator, char));
+                        return Err(format!(
+                            "Expected `{}`, but found `{}`.",
+                            self.value_separator, char
+                        ));
                     }
                     expect_value_separator = false;
                     continue;
@@ -78,7 +83,7 @@ impl Parser for FileParser {
                             value_chars = vec![];
                             expect_value_separator = true;
                             in_value = false;
-                        },
+                        }
                         false => in_value = true,
                     };
                     continue;
@@ -113,7 +118,14 @@ mod test {
         let mut parser = FileParser::new('\'', ',', '\\');
         let result = parser.parse(file);
         let fields = result.unwrap();
-        assert_eq!(vec![vec!["foo", "bar", "baz"], vec!["'FOO'", "'BAR'", "'BAZ'"], vec!["foo  ", " bar ", "   baz"]], fields);
+        assert_eq!(
+            vec![
+                vec!["foo", "bar", "baz"],
+                vec!["'FOO'", "'BAR'", "'BAZ'"],
+                vec!["foo  ", " bar ", "   baz"],
+            ],
+            fields
+        );
     }
 
 }
