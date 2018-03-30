@@ -14,7 +14,8 @@ rust:
 
 matrix:
   allow_failures:
-  - rust: nightly
+    - rust: nightly
+  fast_finish: true
 
 addons:
   apt:
