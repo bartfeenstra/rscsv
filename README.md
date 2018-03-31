@@ -4,3 +4,8 @@
 
 ## About
 Makes a sad attempt at parsing your CSV files.
+
+## Development
+
+### Fixing problems automatically
+Run `./bin/fix`.
