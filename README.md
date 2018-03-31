@@ -5,6 +5,9 @@
 ## About
 Makes a sad attempt at parsing your CSV files.
 
+## License
+RsCSV is released under the [MIT](./LICENSE) license.
+
 ## Development
 
 ### Fixing problems automatically
