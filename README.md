@@ -12,5 +12,8 @@ RsCSV is released under the [MIT](./LICENSE) license.
 If you wish to contribute code changes, you may want to fork this project first, and clone your own forked repository
 instead.
 
+### Building
+Run `./bin/build`.
+
 ### Fixing problems automatically
 Run `./bin/fix`.
