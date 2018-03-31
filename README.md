@@ -15,5 +15,8 @@ instead.
 ### Building
 Run `./bin/build`.
 
+### Testing
+Run `./bin/test`.
+
 ### Fixing problems automatically
 Run `./bin/fix`.
