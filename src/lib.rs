@@ -128,6 +128,7 @@ mod test {
 
     file_parser_should_parse! {
         file_parser_should_parse_simple: ("'foo','bar','baz'".to_string(), vec![vec!["foo", "bar", "baz"]]),
+        file_parser_should_parse_multiline: ("'foo','bar'\n'baz', 'qux'".to_string(), vec![vec!["foo", "bar"], vec!["baz", "qux"]]),
         file_parser_should_parse_escape_sequences: ("'\\'FOO\\'','\\'BAR\\'','\\'BAZ\\''".to_string(), vec![vec!["'FOO'", "'BAR'", "'BAZ'"]]),
         file_parser_should_parse_value_whitespace: ("'foo  ', ' bar ',   '   baz'".to_string(), vec![vec!["foo  ", " bar ", "   baz"]]),
         file_parser_should_parse_surrounding_whitespace: ("   'foo  ',     ' bar '         ,   '   baz'      ".to_string(), vec![vec!["foo  ", " bar ", "   baz"]]),
