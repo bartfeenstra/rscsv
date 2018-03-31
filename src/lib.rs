@@ -120,6 +120,17 @@ mod test {
     }
 
     #[test]
+    fn file_parser_should_parse_empty() {
+        assert_file_parser_should_parse(
+            '\'',
+            ',',
+            '\\',
+            "".to_string(),
+            vec![],
+        );
+    }
+
+    #[test]
     fn file_parser_should_parse_common() {
         assert_file_parser_should_parse(
             '\'',
