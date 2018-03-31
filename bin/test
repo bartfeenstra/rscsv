@@ -8,6 +8,8 @@ trap '(( exit_code |= $? ))' ERR
 
 cargo fmt --all -- --write-mode=diff
 cargo test
+cargo coverage
+# cargo coveralls --exclude-pattern tests/ --all
 
 # Stop aggregating test exit codes.
 trap - ERR

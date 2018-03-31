@@ -17,17 +17,7 @@ matrix:
     - rust: nightly
   fast_finish: true
 
-addons:
-  apt:
-    packages:
-      # Cargo coverage dependencies
-      - libcurl4-openssl-dev
-      - libelf-dev
-      - libdw-dev
-      - binutils-dev
-
 install:
-  - cargo install cargo-travis || echo "Cargo travis is already installed!"
   - export PATH=$HOME/.cargo/bin:$PATH
 
 before_script:
@@ -35,8 +25,3 @@ before_script:
 
 script:
   - ./bin/test
-
-after_success: |
-  if [ "$TRAVIS_RUST_VERSION" == "stable" ]; then
-    cargo coveralls --exclude-pattern tests/ --all
-  fi
