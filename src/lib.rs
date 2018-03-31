@@ -34,28 +34,37 @@ impl Parser for FileParser {
     {
         let mut fields: Vec<Vec<String>> = vec![];
         let reader = BufReader::new(f);
+        let mut row_i = 0u8;
         for line in reader.lines() {
+            row_i = row_i + 1;
             let mut escape = false;
             let mut row: Vec<String> = vec![];
             let mut in_value: bool = false;
             let mut value_chars: Vec<char> = vec![];
-            let mut expect_value_separator = false;
+            // The first expected character is the opening delimiter of the first field.
+            let mut expect: Option<char> = Some(self.value_delimiter);
+            let mut char_i = 0u8;
             for char in line.unwrap().chars() {
+                char_i = char_i + 1;
                 // Ignore whitespace outside values.
                 if char.is_whitespace() && !in_value {
                     continue;
                 }
 
-                // Asserts the expected value separator is present.
-                if expect_value_separator {
-                    if char != self.value_separator {
+                // Asserts an expected character is present.
+                if expect.is_some() {
+                    let expected = expect.unwrap();
+                    if char != expected {
                         return Err(format!(
-                            "Expected `{}`, but found `{}`.",
-                            self.value_separator, char
+                            "Expected `{}`, but found `{}` on line {}, character {}.",
+                            expected, char, row_i, char_i
                         ));
                     }
-                    expect_value_separator = false;
-                    continue;
+                    expect = None;
+                    // Ignore expected value separators.
+                    if char == self.value_separator {
+                        continue;
+                    }
                 }
 
                 // Add escaped characters directly. We cannot be in an escape sequence without being in a value, so we don't have to check for that anymore.
@@ -68,7 +77,7 @@ impl Parser for FileParser {
                 // Toggle escape sequences.
                 if char == self.escape_character {
                     if !in_value {
-                        return Err("Encountered an escape character outside value.".into());
+                        return Err(format!("Encountered an escape character (`{}`) outside value on line {}, character {}.", self.escape_character, row_i, char_i));
                     }
                     escape = !escape;
                     continue;
@@ -81,7 +90,7 @@ impl Parser for FileParser {
                             let value: String = value_chars.into_iter().collect();
                             row.push(value);
                             value_chars = vec![];
-                            expect_value_separator = true;
+                            expect = Some(self.value_separator);
                             in_value = false;
                         }
                         false => in_value = true,
@@ -102,40 +111,144 @@ impl Parser for FileParser {
 mod test {
     use super::*;
 
+    fn assert_file_parser_should_parse(
+        value_delimiter: char,
+        value_separator: char,
+        escape_character: char,
+        csv: String,
+        expected: Vec<Vec<&str>>,
+    ) {
+        let mut file = tempfile().unwrap();
+        file.write_fmt(format_args!("{}", csv)).unwrap();
+        file.flush().unwrap();
+        file.seek(SeekFrom::Start(0)).unwrap();
+        let mut parser = FileParser::new(value_delimiter, value_separator, escape_character);
+        let result = parser.parse(file);
+        let fields = result.unwrap();
+        assert_eq!(expected, fields);
+    }
+
+    fn assert_file_parser_should_error(
+        value_delimiter: char,
+        value_separator: char,
+        escape_character: char,
+        csv: String,
+    ) {
+        let mut file = tempfile().unwrap();
+        file.write_fmt(format_args!("{}", csv)).unwrap();
+        file.flush().unwrap();
+        file.seek(SeekFrom::Start(0)).unwrap();
+        let mut parser = FileParser::new(value_delimiter, value_separator, escape_character);
+        let result = parser.parse(file);
+        assert!(result.is_err());
+    }
+
     #[test]
-    fn file_parser_should_new() {
-        FileParser::new('\'', ',', '\\');
+    fn file_parser_should_parse_empty() {
+        assert_file_parser_should_parse('\'', ',', '\\', "".to_string(), vec![]);
     }
 
-    macro_rules! file_parser_should_parse {
-        ($($name:ident: $value:expr,)*) => {
-        $(
-            #[test]
-            fn $name() {
-                let (value_delimiter, value_separator, escape_character, csv, expected) = $value;
-                let mut file = tempfile().unwrap();
-                file.write_fmt(format_args!("{}", csv)).unwrap();
-                file.flush().unwrap();
-                file.seek(SeekFrom::Start(0)).unwrap();
-                let mut parser = FileParser::new(value_delimiter, value_separator,
-                        escape_character);
-                let result = parser.parse(file);
-                let fields = result.unwrap();
-                assert_eq!(expected, fields);
-            }
-        )*
-        }
+    #[test]
+    fn file_parser_should_parse_common() {
+        assert_file_parser_should_parse(
+            '\'',
+            ',',
+            '\\',
+            "'foo','bar','baz'".to_string(),
+            vec![vec!["foo", "bar", "baz"]],
+        );
     }
 
-    file_parser_should_parse! {
-        file_parser_should_parse_common: ('\'', ',', '\\', "'foo','bar','baz'".to_string(), vec![vec!["foo", "bar", "baz"]]),
-        file_parser_should_parse_common_multiline: ('\'', ',', '\\', "'foo','bar'\n'baz', 'qux'".to_string(), vec![vec!["foo", "bar"], vec!["baz", "qux"]]),
-        file_parser_should_parse_value_delimiter_hash: ('#', ',', '\\', "#foo#,#bar#,#baz#".to_string(), vec![vec!["foo", "bar", "baz"]]),
-        file_parser_should_parse_value_separator_hash: ('\'', '#', '\\', "'foo'#'bar'#'baz'".to_string(), vec![vec!["foo", "bar", "baz"]]),
-        file_parser_should_parse_escape_sequences_common: ('\'', ',', '\\', "'\\'FOO\\'','\\'BAR\\'','\\'BAZ\\''".to_string(), vec![vec!["'FOO'", "'BAR'", "'BAZ'"]]),
-        file_parser_should_parse_escape_sequences_hash: ('\'', ',', '#', "'#'FOO#'','#'BAR#'','#'BAZ#''".to_string(), vec![vec!["'FOO'", "'BAR'", "'BAZ'"]]),
-        file_parser_should_parse_value_whitespace: ('\'', ',', '\\', "'foo  ', ' bar ',   '   baz'".to_string(), vec![vec!["foo  ", " bar ", "   baz"]]),
-        file_parser_should_parse_surrounding_whitespace: ('\'', ',', '\\', "   'foo  ',     ' bar '         ,   '   baz'      ".to_string(), vec![vec!["foo  ", " bar ", "   baz"]]),
+    #[test]
+    fn file_parser_should_parse_common_multiline() {
+        assert_file_parser_should_parse(
+            '\'',
+            ',',
+            '\\',
+            "'foo','bar'\n'baz', 'qux'".to_string(),
+            vec![vec!["foo", "bar"], vec!["baz", "qux"]],
+        );
+    }
+
+    #[test]
+    fn file_parser_should_parse_value_delimiter_hash() {
+        assert_file_parser_should_parse(
+            '#',
+            ',',
+            '\\',
+            "#foo#,#bar#,#baz#".to_string(),
+            vec![vec!["foo", "bar", "baz"]],
+        );
+    }
+
+    #[test]
+    fn file_parser_should_parse_value_separator_hash() {
+        assert_file_parser_should_parse(
+            '\'',
+            '#',
+            '\\',
+            "'foo'#'bar'#'baz'".to_string(),
+            vec![vec!["foo", "bar", "baz"]],
+        );
+    }
+
+    #[test]
+    fn file_parser_should_parse_escape_sequences_common() {
+        assert_file_parser_should_parse(
+            '\'',
+            ',',
+            '\\',
+            "'\\'FOO\\'','\\'BAR\\'','\\'BAZ\\''".to_string(),
+            vec![vec!["'FOO'", "'BAR'", "'BAZ'"]],
+        );
+    }
+
+    #[test]
+    fn file_parser_should_parse_escape_sequences_hash() {
+        assert_file_parser_should_parse(
+            '\'',
+            ',',
+            '#',
+            "'#'FOO#'','#'BAR#'','#'BAZ#''".to_string(),
+            vec![vec!["'FOO'", "'BAR'", "'BAZ'"]],
+        );
+    }
+
+    #[test]
+    fn file_parser_should_parse_value_whitespace() {
+        assert_file_parser_should_parse(
+            '\'',
+            ',',
+            '\\',
+            "'foo  ', ' bar ',   '   baz'".to_string(),
+            vec![vec!["foo  ", " bar ", "   baz"]],
+        );
+    }
+
+    #[test]
+    fn file_parser_should_parse_surrounding_whitespace() {
+        assert_file_parser_should_parse(
+            '\'',
+            ',',
+            '\\',
+            "   'foo  ',     ' bar '         ,   '   baz'      ".to_string(),
+            vec![vec!["foo  ", " bar ", "   baz"]],
+        );
+    }
+
+    #[test]
+    fn file_parser_should_error_on_unopened_first_field() {
+        assert_file_parser_should_error('\'', ',', '\\', "foo','bar','baz'".to_string());
+    }
+
+    #[test]
+    fn file_parser_should_error_on_unterminated_first_field() {
+        assert_file_parser_should_error('\'', ',', '\\', "'foo,'bar','baz'".to_string());
+    }
+
+    #[test]
+    fn file_parser_should_error_on_invalid_character_before_first_field() {
+        assert_file_parser_should_error('\'', ',', '\\', "f'oo','bar','baz'".to_string());
     }
 
 }
