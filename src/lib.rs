@@ -108,24 +108,51 @@ mod test {
     }
 
     #[test]
-    fn file_parser_should_parse() {
+    fn file_parser_should_parse_simple() {
         let mut file = tempfile().unwrap();
         writeln!(file, "'foo','bar','baz'").unwrap();
+        file.flush().unwrap();
+        file.seek(SeekFrom::Start(0)).unwrap();
+        let mut parser = FileParser::new('\'', ',', '\\');
+        let result = parser.parse(file);
+        let fields = result.unwrap();
+        assert_eq!(vec![vec!["foo", "bar", "baz"]], fields);
+    }
+
+    #[test]
+    fn file_parser_should_parse_escape_sequences() {
+        let mut file = tempfile().unwrap();
         writeln!(file, "'\\'FOO\\'','\\'BAR\\'','\\'BAZ\\''").unwrap();
+        file.flush().unwrap();
+        file.seek(SeekFrom::Start(0)).unwrap();
+        let mut parser = FileParser::new('\'', ',', '\\');
+        let result = parser.parse(file);
+        let fields = result.unwrap();
+        assert_eq!(vec![vec!["'FOO'", "'BAR'", "'BAZ'"]], fields);
+    }
+
+    #[test]
+    fn file_parser_should_ignore_value_whitespace() {
+        let mut file = tempfile().unwrap();
         writeln!(file, "'foo  ', ' bar ',   '   baz'").unwrap();
         file.flush().unwrap();
         file.seek(SeekFrom::Start(0)).unwrap();
         let mut parser = FileParser::new('\'', ',', '\\');
         let result = parser.parse(file);
         let fields = result.unwrap();
-        assert_eq!(
-            vec![
-                vec!["foo", "bar", "baz"],
-                vec!["'FOO'", "'BAR'", "'BAZ'"],
-                vec!["foo  ", " bar ", "   baz"],
-            ],
-            fields
-        );
+        assert_eq!(vec![vec!["foo  ", " bar ", "   baz"]], fields);
+    }
+
+    #[test]
+    fn file_parser_should_ignore_surrounding_whitespace() {
+        let mut file = tempfile().unwrap();
+        writeln!(file, "   'foo  ',     ' bar '         ,   '   baz'      ").unwrap();
+        file.flush().unwrap();
+        file.seek(SeekFrom::Start(0)).unwrap();
+        let mut parser = FileParser::new('\'', ',', '\\');
+        let result = parser.parse(file);
+        let fields = result.unwrap();
+        assert_eq!(vec![vec!["foo  ", " bar ", "   baz"]], fields);
     }
 
 }
