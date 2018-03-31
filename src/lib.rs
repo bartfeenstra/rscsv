@@ -112,12 +112,13 @@ mod test {
         $(
             #[test]
             fn $name() {
-                let (csv, expected) = $value;
+                let (value_delimiter, value_separator, escape_character, csv, expected) = $value;
                 let mut file = tempfile().unwrap();
                 file.write_fmt(format_args!("{}", csv)).unwrap();
                 file.flush().unwrap();
                 file.seek(SeekFrom::Start(0)).unwrap();
-                let mut parser = FileParser::new('\'', ',', '\\');
+                let mut parser = FileParser::new(value_delimiter, value_separator,
+                        escape_character);
                 let result = parser.parse(file);
                 let fields = result.unwrap();
                 assert_eq!(expected, fields);
@@ -127,11 +128,14 @@ mod test {
     }
 
     file_parser_should_parse! {
-        file_parser_should_parse_simple: ("'foo','bar','baz'".to_string(), vec![vec!["foo", "bar", "baz"]]),
-        file_parser_should_parse_multiline: ("'foo','bar'\n'baz', 'qux'".to_string(), vec![vec!["foo", "bar"], vec!["baz", "qux"]]),
-        file_parser_should_parse_escape_sequences: ("'\\'FOO\\'','\\'BAR\\'','\\'BAZ\\''".to_string(), vec![vec!["'FOO'", "'BAR'", "'BAZ'"]]),
-        file_parser_should_parse_value_whitespace: ("'foo  ', ' bar ',   '   baz'".to_string(), vec![vec!["foo  ", " bar ", "   baz"]]),
-        file_parser_should_parse_surrounding_whitespace: ("   'foo  ',     ' bar '         ,   '   baz'      ".to_string(), vec![vec!["foo  ", " bar ", "   baz"]]),
+        file_parser_should_parse_common: ('\'', ',', '\\', "'foo','bar','baz'".to_string(), vec![vec!["foo", "bar", "baz"]]),
+        file_parser_should_parse_common_multiline: ('\'', ',', '\\', "'foo','bar'\n'baz', 'qux'".to_string(), vec![vec!["foo", "bar"], vec!["baz", "qux"]]),
+        file_parser_should_parse_value_delimiter_hash: ('#', ',', '\\', "#foo#,#bar#,#baz#".to_string(), vec![vec!["foo", "bar", "baz"]]),
+        file_parser_should_parse_value_separator_hash: ('\'', '#', '\\', "'foo'#'bar'#'baz'".to_string(), vec![vec!["foo", "bar", "baz"]]),
+        file_parser_should_parse_escape_sequences_common: ('\'', ',', '\\', "'\\'FOO\\'','\\'BAR\\'','\\'BAZ\\''".to_string(), vec![vec!["'FOO'", "'BAR'", "'BAZ'"]]),
+        file_parser_should_parse_escape_sequences_hash: ('\'', ',', '#', "'#'FOO#'','#'BAR#'','#'BAZ#''".to_string(), vec![vec!["'FOO'", "'BAR'", "'BAZ'"]]),
+        file_parser_should_parse_value_whitespace: ('\'', ',', '\\', "'foo  ', ' bar ',   '   baz'".to_string(), vec![vec!["foo  ", " bar ", "   baz"]]),
+        file_parser_should_parse_surrounding_whitespace: ('\'', ',', '\\', "   'foo  ',     ' bar '         ,   '   baz'      ".to_string(), vec![vec!["foo  ", " bar ", "   baz"]]),
     }
 
 }
