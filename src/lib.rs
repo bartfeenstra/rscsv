@@ -102,11 +102,6 @@ impl Parser for FileParser {
 mod test {
     use super::*;
 
-    #[test]
-    fn file_parser_should_new() {
-        FileParser::new('\'', ',', '\\');
-    }
-
     fn assert_file_parser_should_parse(
         value_delimiter: char,
         value_separator: char,
